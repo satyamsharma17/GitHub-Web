@@ -1,16 +1,19 @@
 package com.satverse.githubweb
 
 import android.annotation.SuppressLint
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var webView: WebView
+    private val INPUT_FILE_REQUEST_CODE = 1
+    private var mFilePathCallback: ValueCallback<Array<Uri>>? = null
     private val url = "https://github.com/" // Replace with your website URL
+
+    private lateinit var webView: WebView
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,14 +29,37 @@ class MainActivity : AppCompatActivity() {
         webSettings.allowFileAccess = true
         webSettings.loadsImagesAutomatically = true
         webSettings.cacheMode = WebSettings.LOAD_DEFAULT
+        webSettings.setSupportMultipleWindows(true) // This forces ChromeClient enabled.
 
         webView.loadUrl(url)
-        webView.setWebViewClient(object : WebViewClient() {
+
+        webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
                 view.loadUrl(url)
                 return false
             }
-        })
+        }
+
+        webView.webChromeClient = object : WebChromeClient() {
+
+            override fun onShowFileChooser(webView: WebView, filePathCallback: ValueCallback<Array<Uri>>, fileChooserParams: FileChooserParams): Boolean {
+                mFilePathCallback = filePathCallback
+                startActivityForResult(fileChooserParams.createIntent(), INPUT_FILE_REQUEST_CODE)
+                return true
+            }
+
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode != INPUT_FILE_REQUEST_CODE || mFilePathCallback == null) {
+            super.onActivityResult(requestCode, resultCode, data)
+            return
+        }
+
+        val results: Array<Uri>? = WebChromeClient.FileChooserParams.parseResult(resultCode, data)
+        mFilePathCallback?.onReceiveValue(results)
+        mFilePathCallback = null
     }
 
     override fun onBackPressed() {
